@@ -1,0 +1,6 @@
+{
+    "require": {
+        "phalcon/devtools": "dev-master",
+        "robmorgan/phinx": "~0.4.4"
+    }
+}
