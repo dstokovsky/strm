@@ -4,12 +4,6 @@ use Phalcon\Mvc\Model\Validator\Uniqueness as Uniqueness;
 
 class UsersFriends extends \Phalcon\Mvc\Model
 {
-
-    /**
-     * Available statuses of relations between users.
-     */
-    const SUBSCRIBER_STATUS = 'subscriber';
-    const FRIEND_STATUS = 'friend';
     
     /**
      *
@@ -28,12 +22,6 @@ class UsersFriends extends \Phalcon\Mvc\Model
      * @var integer
      */
     public $friend_id;
-
-    /**
-     *
-     * @var string
-     */
-    public $status;
 
     /**
      *
