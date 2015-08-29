@@ -7,16 +7,15 @@ use Phalcon\Http\Response;
  */
 $app->get('/api/users/{id:[0-9]+}', function ($id) use ($app) {
     $phql = "SELECT * FROM User WHERE id = :id:";
-    $user = $app->modelsManager->executeQuery($phql, ['id' => $id])->getFirst();
+    $user = $app->modelsManager->executeQuery($phql, ['id' => (int) $id])->getFirst();
 
     // Create a response
     $response = new Response();
-    $content = ['code' => 404, 'status' => 'Not Found', 'data' => []];
+    $content = ['data' => []];
     if (!empty($user))
     {
+        $response->setStatusCode(200, 'Ok');
         $content = [
-            'code' => 200,
-            'status' => 'Ok',
             'data'   => [
                 'id'   => $user->id,
                 'name' => $user->email,
@@ -25,6 +24,11 @@ $app->get('/api/users/{id:[0-9]+}', function ($id) use ($app) {
                 'created_at' => $user->created_at,
             ]
         ];
+    }
+    else
+    {
+        $response->setStatusCode(404, 'Not Found');
+        $content['data'][] = 'There is no such user';
     }
     $response->setJsonContent($content);
 
@@ -52,25 +56,19 @@ $app->post('/api/users', function () use ($app) {
     $content = [];
     if ($status->success())
     {
+        $response->setStatusCode(201, 'Created');
         $user->id = $status->getModel()->id;
         $content = [
-            'code' => 201,
-            'status' => 'Created',
             'data' => $user,
         ];
     }
     else
     {
-        $errors = array();
         foreach ($status->getMessages() as $message)
         {
-            $errors[] = $message->getMessage();
+            $content['data'][] = $message->getMessage();
         }
-        $content = [
-            'code' => 409,
-            'status' => 'Conflict',
-            'data' => $errors,
-        ];
+        $response->setStatusCode(409, 'Conflict');
     }
     $response->setJsonContent($content);
 
@@ -109,20 +107,18 @@ $app->put('/api/users/{id:[0-9]+}', function ($id) use ($app) {
     $status = $app->modelsManager->executeQuery(sprintf($phql, implode(', ', $set)), $binds);
 
     $response = new Response();
-    $content = ['code' => 200, 'status' => 'Ok', 'data' => $status->getModel()];
     if (!$status->success())
     {
-        $errors = array();
         foreach ($status->getMessages() as $message)
         {
-            $errors[] = $message->getMessage();
+            $content['data'][] = $message->getMessage();
         }
-
-        $content = [
-            'code' => 409,
-            'status'   => 'Conflict',
-            'data' => $errors,
-        ];
+        $response->setStatusCode(409, 'Conflict');
+    }
+    else
+    {
+        $response->setStatusCode(200, 'Ok');
+        $content = ['data' => $status->getModel()];
     }
     $response->setJsonContent($content);
 
@@ -134,23 +130,21 @@ $app->put('/api/users/{id:[0-9]+}', function ($id) use ($app) {
  */
 $app->delete('/api/users/{id:[0-9]+}', function ($id) use ($app) {
     $phql = "DELETE FROM User WHERE id = :id:";
-    $status = $app->modelsManager->executeQuery($phql, ['id' => $id]);
+    $status = $app->modelsManager->executeQuery($phql, ['id' => (int) $id]);
 
     $response = new Response();
-    $content = ['code' => 200, 'status' => 'Ok', 'data' => []];
+    $content = ['data' => []];
     if (!$status->success())
     {
-        $errors = array();
         foreach ($status->getMessages() as $message)
         {
-            $errors[] = $message->getMessage();
+            $content['data'][] = $message->getMessage();
         }
-
-        $content = [
-            'code' => 409,
-            'status' => 'Conflict',
-            'data' => $errors,
-        ];
+        $response->setStatusCode(409, 'Conflict');
+    }
+    else
+    {
+        $response->setStatusCode(200, 'Ok');
     }
     $response->setJsonContent($content);
 

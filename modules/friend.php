@@ -7,16 +7,18 @@ use Phalcon\Http\Response;
  */
 $app->post('/api/friends/{user_id:[0-9]+}/{friend_id:[0-9]+}', function ($user_id, $friend_id) use ($app) {
     $response = new Response();
-    $content = ['code' => 404, 'status' => 'Not Found', 'data' => []];
-    $user = User::findFirst(['conditions' => 'id = ?1', 'bind' => [1 => $user_id]]);
+    $content = ['data' => []];
+    $user = User::findFirst(['conditions' => 'id = ?0', 'bind' => [$user_id]]);
     if(empty($user))
     {
+        $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no user with such user id.';
     }
     
-    $friend = User::findFirst(['conditions' => 'id = ?1', 'bind' => [1 => $friend_id]]);
+    $friend = User::findFirst(['conditions' => 'id = ?0', 'bind' => [$friend_id]]);
     if(empty($friend))
     {
+        $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no user with such friend id.';
     }
     
@@ -32,24 +34,18 @@ $app->post('/api/friends/{user_id:[0-9]+}/{friend_id:[0-9]+}', function ($user_i
         ));
         if ($status->success())
         {
+            $response->setStatusCode(201, 'Created');
             $content = [
-                'code' => 201,
-                'status' => 'Created',
                 'data' => $status->getModel(),
             ];
         }
         else
         {
-            $errors = array();
             foreach ($status->getMessages() as $message)
             {
-                $errors[] = $message->getMessage();
+                $content['data'][] = $message->getMessage();
             }
-            $content = [
-                'code' => 409,
-                'status' => 'Conflict',
-                'data' => $errors,
-            ];
+            $response->setStatusCode(409, 'Conflict');
         }
     }
     
@@ -62,10 +58,11 @@ $app->post('/api/friends/{user_id:[0-9]+}/{friend_id:[0-9]+}', function ($user_i
  */
 $app->get('/api/friends/{id:[0-9]+}/follows', function ($id) use ($app) {
     $response = new Response();
-    $content = ['code' => 404, 'status' => 'Not Found', 'data' => []];
-    $user = User::findFirst(['conditions' => 'id = ?1', 'bind' => [1 => $id]]);
+    $content = ['data' => []];
+    $user = User::findFirst(['conditions' => 'id = ?0', 'bind' => [(int) $id]]);
     if(empty($user))
     {
+        $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no such user.';
     }
     
@@ -73,7 +70,8 @@ $app->get('/api/friends/{id:[0-9]+}/follows', function ($id) use ($app) {
     {
         $phql = "SELECT User.* FROM User INNER JOIN UsersFriends ON User.id=UsersFriends.friend_id WHERE UsersFriends.user_id = :id: LIMIT 10";
         $friends = $app->modelsManager->executeQuery($phql, ['id' => $id]);
-        $content = ['code' => 200, 'status' => 'Ok', 'data' => []];
+        $response->setStatusCode(200, 'Ok');
+        $content = ['data' => []];
         foreach ($friends as $friend)
         {
             $content['data'][] = [
@@ -94,10 +92,11 @@ $app->get('/api/friends/{id:[0-9]+}/follows', function ($id) use ($app) {
  */
 $app->get('/api/friends/{id:[0-9]+}/followers', function ($id) use ($app) {
     $response = new Response();
-    $content = ['code' => 404, 'status' => 'Not Found', 'data' => []];
-    $user = User::findFirst(['conditions' => 'id = ?1', 'bind' => [1 => $id]]);
+    $content = ['data' => []];
+    $user = User::findFirst(['conditions' => 'id = ?0', 'bind' => [(int) $id]]);
     if(empty($user))
     {
+        $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no such user.';
     }
     
@@ -105,7 +104,8 @@ $app->get('/api/friends/{id:[0-9]+}/followers', function ($id) use ($app) {
     {
         $phql = "SELECT User.* FROM User INNER JOIN UsersFriends ON User.id=UsersFriends.user_id WHERE UsersFriends.friend_id = :id: LIMIT 10";
         $friends = $app->modelsManager->executeQuery($phql, ['id' => $id]);
-        $content = ['code' => 200, 'status' => 'Ok', 'data' => []];
+        $response->setStatusCode(200, 'Ok');
+        $content = ['data' => []];
         foreach ($friends as $friend)
         {
             $content['data'][] = [
@@ -115,6 +115,32 @@ $app->get('/api/friends/{id:[0-9]+}/followers', function ($id) use ($app) {
                 'second_name' => $friend->second_name,
             ];
         }
+    }
+    
+    $response->setJsonContent($content);
+    return $response;
+});
+
+/**
+ * Removes a friend for the given user.
+ */
+$app->delete('/api/friends/{user_id:[0-9]+}/{friend_id:[0-9]+}', function ($user_id, $friend_id) use ($app) {
+    $response = new Response();
+    $content = ['data' => []];
+    $phql = "DELETE FROM UsersFriends WHERE user_id = :user_id: AND friend_id = :friend_id:";
+    $status = $app->modelsManager->executeQuery($phql, ['user_id' => (int) $user_id, 'friend_id' => (int) $friend_id]);
+    
+    if (!$status->success())
+    {
+        foreach ($status->getMessages() as $message)
+        {
+            $content['data'][] = $message->getMessage();
+        }
+        $response->setStatusCode(409, 'Conflict');
+    }
+    else
+    {
+        $response->setStatusCode(200, 'Ok');
     }
     
     $response->setJsonContent($content);

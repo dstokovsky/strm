@@ -8,23 +8,34 @@ use Phalcon\Http\Response;
 $app->post('/api/messages/{author_id:[0-9]+}/{recipient_id:[0-9]+}', function ($author_id, $recipient_id) use ($app) {
     $message = $app->request->getJsonRawBody();
     $response = new Response();
-    $content = ['code' => 404, 'status' => 'Not Found', 'data' => []];
+    $content = ['data' => []];
     if(!isset($message->text) || empty($message->text))
     {
-        $content = ['code' => 500, 'status' => 'Internal Error', 'data' => 
-            ['Invalid message text, it is not set or empty or longer than expected.']];
+        $response->setStatusCode(409, 'Conflict');
+        $content = ['data' => ['Invalid message text, it is not set or empty or longer than expected.']];
     }
     
-    $author = User::findFirst(['conditions' => 'id = ?1', 'bind' => [1 => $author_id]]);
+    $author = User::findFirst(['conditions' => 'id = ?0', 'bind' => [(int) $author_id]]);
     if(empty($author))
     {
+        $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no user with such author id.';
     }
     
-    $recipient = User::findFirst(['conditions' => 'id = ?1', 'bind' => [1 => $recipient_id]]);
+    $recipient = User::findFirst(['conditions' => 'id = ?0', 'bind' => [(int) $recipient_id]]);
     if(empty($recipient))
     {
+        $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no user with such recipient id.';
+    }
+    
+    $phql = "SELECT * FROM Blacklist WHERE user_id = :user_id: AND banned_user_id = :banned_user_id:";
+    $blacklist = $app->modelsManager->executeQuery($phql, ['user_id' => (int) $recipient_id, 
+        'banned_user_id' => (int) $author_id])->getFirst();
+    if(!empty($blacklist))
+    {
+        $response->setStatusCode(409, 'Conflict');
+        $content['data'][] = 'User with specified author id is in blacklist.';
     }
     
     if(empty($content['data']))
@@ -40,24 +51,18 @@ $app->post('/api/messages/{author_id:[0-9]+}/{recipient_id:[0-9]+}', function ($
         ));
         if ($status->success())
         {
+            $response->setStatusCode(201, 'Created');
             $content = [
-                'code' => 201,
-                'status' => 'Created',
                 'data' => $status->getModel(),
             ];
         }
         else
         {
-            $errors = array();
             foreach ($status->getMessages() as $message)
             {
-                $errors[] = $message->getMessage();
+                $content['data'][] = $message->getMessage();
             }
-            $content = [
-                'code' => 409,
-                'status' => 'Conflict',
-                'data' => $errors,
-            ];
+            $response->setStatusCode(409, 'Conflict');
         }
     }
     
@@ -70,11 +75,12 @@ $app->post('/api/messages/{author_id:[0-9]+}/{recipient_id:[0-9]+}', function ($
  */
 $app->get('/api/messages/{user_id:[0-9]+}/history', function ($user_id) use ($app) {
     $response = new Response();
-    $content = ['code' => 404, 'status' => 'Not Found', 'data' => []];
+    $content = ['data' => []];
     
-    $user = User::findFirst(['conditions' => 'id = ?1', 'bind' => [1 => $user_id]]);
+    $user = User::findFirst(['conditions' => 'id = ?0', 'bind' => [(int) $user_id]]);
     if(empty($user))
     {
+        $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no user with such id.';
     }
     
@@ -82,7 +88,8 @@ $app->get('/api/messages/{user_id:[0-9]+}/history', function ($user_id) use ($ap
     {
         $phql = "SELECT User.* FROM User INNER JOIN Message ON User.id=Message.recipient_id WHERE Message.author_id = :id: LIMIT 10";
         $as_author = $app->modelsManager->executeQuery($phql, ['id' => $user_id]);
-        $content = ['code' => 200, 'status' => 'Ok', 'data' => []];
+        $response->setStatusCode(200, 'Ok');
+        $content = ['data' => []];
         $users = [];
         foreach ($as_author as $recipient)
         {
@@ -118,17 +125,19 @@ $app->get('/api/messages/{user_id:[0-9]+}/history', function ($user_id) use ($ap
  */
 $app->get('/api/messages/{author_id:[0-9]+}/{recipient_id:[0-9]+}', function ($author_id, $recipient_id) use ($app) {
     $response = new Response();
-    $content = ['code' => 404, 'status' => 'Not Found', 'data' => []];
+    $content = ['data' => []];
     
-    $author = User::findFirst(['conditions' => 'id = ?1', 'bind' => [1 => $author_id]]);
+    $author = User::findFirst(['conditions' => 'id = ?0', 'bind' => [(int) $author_id]]);
     if(empty($author))
     {
+        $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no user with such author id.';
     }
     
-    $recipient = User::findFirst(['conditions' => 'id = ?1', 'bind' => [1 => $recipient_id]]);
+    $recipient = User::findFirst(['conditions' => 'id = ?0', 'bind' => [(int) $recipient_id]]);
     if(empty($recipient))
     {
+        $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no user with such recipient id.';
     }
     
@@ -139,7 +148,8 @@ $app->get('/api/messages/{author_id:[0-9]+}/{recipient_id:[0-9]+}', function ($a
             "WHERE (author_id = :author_id: AND recipient_id = :recipient_id:) OR " .
             "(author_id = :recipient_id: AND recipient_id = :author_id:) LIMIT 10";
         $messages = $app->modelsManager->executeQuery($phql, ['author_id' => $author_id, 'recipient_id' => $recipient_id]);
-        $content = ['code' => 200, 'status' => 'Ok', 'data' => []];
+        $response->setStatusCode(200, 'Ok');
+        $content = ['data' => []];
         foreach ($messages as $message)
         {
             $content['data'][] = $message;
@@ -147,5 +157,44 @@ $app->get('/api/messages/{author_id:[0-9]+}/{recipient_id:[0-9]+}', function ($a
     }
     
     $response->setJsonContent($content);
+    return $response;
+});
+
+/**
+ * Removes the communication history between users.
+ */
+$app->delete('/api/messages/{author_id:[0-9]+}/{recipient_id:[0-9]+}', function ($author_id, $recipient_id) use ($app) {
+    $response = new Response();
+    $content = ['data' => []];
+    $phql = "DELETE FROM Message WHERE author_id = :author_id: AND recipient_id = :recipient_id:";
+    $status = $app->modelsManager->executeQuery($phql, ['author_id' => (int) $author_id, 
+        'recipient_id' => (int) $recipient_id]);
+    if (!$status->success())
+    {
+        $response->setStatusCode(409, 'Conflict');
+        foreach ($status->getMessages() as $message)
+        {
+            $content['data'][] = $message->getMessage();
+        }
+    }
+    
+    $phql = "DELETE FROM Message WHERE author_id = :author_id: AND recipient_id = :recipient_id:";
+    $status = $app->modelsManager->executeQuery($phql, ['author_id' => (int) $recipient_id, 
+        'recipient_id' => (int) $author_id]);
+    if (!$status->success())
+    {
+        foreach ($status->getMessages() as $message)
+        {
+            $content['data'][] = $message->getMessage();
+        }
+    }
+    
+    if(empty($content['data']))
+    {
+        $response->setStatusCode(200, 'Ok');
+    }
+    
+    $response->setJsonContent($content);
+
     return $response;
 });
