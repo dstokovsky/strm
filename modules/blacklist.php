@@ -46,8 +46,36 @@ $app->post('/api/blacklist/{user_id:[0-9]+}/{banned_user_id:[0-9]+}', function (
             $response->setStatusCode(409, 'Conflict');
         }
     }
+    
     $response->setJsonContent($content);
+    return $response;
+});
 
+/**
+ * Get the user's blacklist by its id.
+ */
+$app->get('/api/blacklist/{user_id:[0-9]+}', function ($user_id) use ($app) {
+    $phql = "SELECT User.* FROM Blacklist INNER JOIN User ON Blacklist.banned_user_id=User.id WHERE Blacklist.user_id = :user_id:";
+    $users = $app->modelsManager->executeQuery($phql, ['user_id' => (int) $user_id]);
+
+    // Create a response
+    $response = new Response();
+    $content = ['data' => []];
+    if (!empty($users))
+    {
+        $response->setStatusCode(200, 'Ok');
+        foreach ($users as $user)
+        {
+            $content['data'][] = [
+                'id' => $user->id,
+                'email' => $user->email,
+                'first_name' => $user->first_name,
+                'second_name' => $user->second_name,
+            ];
+        }
+    }
+    
+    $response->setJsonContent($content);
     return $response;
 });
 
@@ -73,7 +101,7 @@ $app->delete('/api/blacklist/{user_id:[0-9]+}/{banned_user_id:[0-9]+}', function
     {
         $response->setStatusCode(200, 'Ok');
     }
+    
     $response->setJsonContent($content);
-
     return $response;
 });

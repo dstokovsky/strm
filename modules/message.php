@@ -195,6 +195,5 @@ $app->delete('/api/messages/{author_id:[0-9]+}/{recipient_id:[0-9]+}', function 
     }
     
     $response->setJsonContent($content);
-
     return $response;
 });

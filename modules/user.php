@@ -30,8 +30,8 @@ $app->get('/api/users/{id:[0-9]+}', function ($id) use ($app) {
         $response->setStatusCode(404, 'Not Found');
         $content['data'][] = 'There is no such user';
     }
+    
     $response->setJsonContent($content);
-
     return $response;
 });
 
@@ -70,8 +70,8 @@ $app->post('/api/users', function () use ($app) {
         }
         $response->setStatusCode(409, 'Conflict');
     }
+    
     $response->setJsonContent($content);
-
     return $response;
 });
 
@@ -120,8 +120,8 @@ $app->put('/api/users/{id:[0-9]+}', function ($id) use ($app) {
         $response->setStatusCode(200, 'Ok');
         $content = ['data' => $status->getModel()];
     }
+    
     $response->setJsonContent($content);
-
     return $response;
 });
 
@@ -146,7 +146,7 @@ $app->delete('/api/users/{id:[0-9]+}', function ($id) use ($app) {
     {
         $response->setStatusCode(200, 'Ok');
     }
+    
     $response->setJsonContent($content);
-
     return $response;
 });
