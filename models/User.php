@@ -23,6 +23,18 @@ class User extends \Phalcon\Mvc\Model
      * @var string
      */
     public $first_name;
+    
+    /**
+     *
+     * @var string
+     */
+    public $password;
+    
+    /**
+     * 
+     * @var string
+     */
+    public $account;
 
     /**
      *
@@ -41,14 +53,14 @@ class User extends \Phalcon\Mvc\Model
      * @var string
      */
     public $updated_at;
-
+    
     /**
      * Validations and business logic
      *
      * @return boolean
      */
     public function validation()
-    {
+    {   
         $this->validate(
             new Email(
                 array(
@@ -82,6 +94,18 @@ class User extends \Phalcon\Mvc\Model
     public function getSource()
     {
         return 'user';
+    }
+    
+    public function setPassword($password)
+    {
+        if(!empty($password))
+        {
+            $this->password = password_hash($password, PASSWORD_DEFAULT);
+        }
+        else
+        {
+            $this->password = "1";
+        }
     }
 
     /**

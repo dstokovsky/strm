@@ -1,6 +1,6 @@
 <?php
 
-class UsersSettings extends \Phalcon\Mvc\Model
+class UserSettings extends \Phalcon\Mvc\Model
 {
     
     /**

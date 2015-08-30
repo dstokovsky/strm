@@ -41,26 +41,22 @@ $app->get('/api/users/{id:[0-9]+}', function ($id) use ($app) {
 $app->post('/api/users', function () use ($app) {
     $user = $app->request->getJsonRawBody();
  
-    $phql = 'INSERT INTO User (email, first_name, second_name, created_at, updated_at) ' . 
-        'VALUES (:email:, :first_name:, :second_name:, :created_at:, :updated_at:)';
-
+    $phql = 'INSERT INTO User (email, password, account, first_name, second_name, created_at, updated_at) ' . 
+        'VALUES (:email:, :password:, :account:, :first_name:, :second_name:, :created_at:, :updated_at:)';
     $status = $app->modelsManager->executeQuery($phql, array(
         'email' => $user->email,
+        'password' => $user->password,
+        'account' => $user->account,
         'first_name' => htmlentities(strip_tags(trim($user->first_name)), ENT_QUOTES, 'UTF-8'),
         'second_name' => htmlentities(strip_tags(trim($user->second_name)), ENT_QUOTES, 'UTF-8'),
         'created_at' => date('Y-m-d H:i:s'),
         'updated_at' => date('Y-m-d H:i:s'),
     ));
-    
     $response = new Response();
     $content = [];
     if ($status->success())
     {
-        $response->setStatusCode(201, 'Created');
         $user->id = $status->getModel()->id;
-        $content = [
-            'data' => $user,
-        ];
     }
     else
     {
@@ -69,6 +65,44 @@ $app->post('/api/users', function () use ($app) {
             $content['data'][] = $message->getMessage();
         }
         $response->setStatusCode(409, 'Conflict');
+    }
+    
+    if(!empty($content['data']))
+    {
+        $response->setJsonContent($content);
+        return $response;
+    }
+    
+    $phql = 'INSERT INTO UserSettings (user_id, name, value, created_at, updated_at) VALUES ' . 
+        '(:user_id:, :name:, :value:, :created_at:, :updated_at:)';
+    foreach ($user as $setting_name => $setting_value)
+    {
+        if(is_array($setting_value))
+        {
+            foreach ($setting_value as $value)
+            {
+                $status = $app->modelsManager->executeQuery($phql, [
+                    'user_id' => $user->id,
+                    'name' => $setting_name,
+                    'value' => htmlentities(strip_tags(trim($value)), ENT_QUOTES, 'UTF-8'),
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+                if(!$status->success())
+                {
+                    foreach ($status->getMessages() as $message)
+                    {
+                        $content['data'][] = $message->getMessage();
+                    }
+                    $response->setStatusCode(409, 'Conflict');
+                }
+            }
+        }
+    }
+    if(empty($content['data']))
+    {
+        $content['data'] = $user;
+        $response->setStatusCode(201, 'Created');
     }
     
     $response->setJsonContent($content);

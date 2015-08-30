@@ -1,5 +1,7 @@
 <?php
 
+ini_set('display_errors', 0);
+
 use Phalcon\Loader;
 use Phalcon\Mvc\Micro;
 use Phalcon\DI\FactoryDefault;
