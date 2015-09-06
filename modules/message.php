@@ -86,8 +86,21 @@ $app->get('/api/messages/{user_id:[0-9]+}/history', function ($user_id) use ($ap
     
     if(empty($content['data']))
     {
-        $phql = "SELECT User.* FROM User INNER JOIN Message ON User.id=Message.recipient_id WHERE Message.author_id = :id: LIMIT 10";
-        $as_author = $app->modelsManager->executeQuery($phql, ['id' => $user_id]);
+        $request = $app->request->getJsonRawBody();
+        $phql = "SELECT User.* FROM User INNER JOIN Message ON User.id=Message.recipient_id WHERE Message.author_id = :id:";
+        $sql_params = ['id' => (int) $user_id];
+        if(isset($request->before_id) && (int) $request->before_id > 0)
+        {
+            $phql .= ' AND User.id < :before_id:';
+            $sql_params['before_id'] = (int) $request->before_id;
+        }
+        if(isset($request->after_id) && (int) $request->after_id > 0)
+        {
+            $phql .= ' AND User.id > :after_id:';
+            $sql_params['after_id'] = (int) $request->after_id;
+        }
+        $phql .= ' ORDER BY User.id ASC LIMIT 10';
+        $as_author = $app->modelsManager->executeQuery($phql, $sql_params);
         $response->setStatusCode(200, 'Ok');
         $content = ['data' => []];
         $users = [];
@@ -101,8 +114,17 @@ $app->get('/api/messages/{user_id:[0-9]+}/history', function ($user_id) use ($ap
             ];
         }
         
-        $phql = "SELECT User.* FROM User INNER JOIN Message ON User.id=Message.author_id WHERE Message.recipient_id = :id: LIMIT 10";
-        $as_recipient = $app->modelsManager->executeQuery($phql, ['id' => $user_id]);
+        $phql = "SELECT User.* FROM User INNER JOIN Message ON User.id=Message.author_id WHERE Message.recipient_id = :id:";
+        if(isset($request->before_id) && (int) $request->before_id > 0)
+        {
+            $phql .= ' AND User.id < :before_id:';
+        }
+        if(isset($request->after_id) && (int) $request->after_id > 0)
+        {
+            $phql .= ' AND User.id > :after_id:';
+        }
+        $phql .= ' ORDER BY User.id ASC LIMIT 10';
+        $as_recipient = $app->modelsManager->executeQuery($phql, $sql_params);
         foreach ($as_recipient as $author)
         {
             $users[$author->id] = [
@@ -143,11 +165,24 @@ $app->get('/api/messages/{author_id:[0-9]+}/{recipient_id:[0-9]+}', function ($a
     
     if(empty($content['data']))
     {
+        $request = $app->request->getJsonRawBody();
         $phql = "SELECT id, author_id, text, created_at, updated_at " . 
             "FROM Message " . 
-            "WHERE (author_id = :author_id: AND recipient_id = :recipient_id:) OR " .
-            "(author_id = :recipient_id: AND recipient_id = :author_id:) LIMIT 10";
-        $messages = $app->modelsManager->executeQuery($phql, ['author_id' => $author_id, 'recipient_id' => $recipient_id]);
+            "WHERE ((author_id = :author_id: AND recipient_id = :recipient_id:) OR " .
+            "(author_id = :recipient_id: AND recipient_id = :author_id:))";
+        $sql_params = ['author_id' => (int) $author_id, 'recipient_id' => (int) $recipient_id];
+        if(isset($request->before_id) && (int) $request->before_id > 0)
+        {
+            $phql .= ' AND Message.id < :before_id:';
+            $sql_params['before_id'] = (int) $request->before_id;
+        }
+        if(isset($request->after_id) && (int) $request->after_id > 0)
+        {
+            $phql .= ' AND Message.id > :after_id:';
+            $sql_params['after_id'] = (int) $request->after_id;
+        }
+        $phql .= ' ORDER BY Message.id ASC LIMIT 10';
+        $messages = $app->modelsManager->executeQuery($phql, $sql_params);
         $response->setStatusCode(200, 'Ok');
         $content = ['data' => []];
         foreach ($messages as $message)

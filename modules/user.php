@@ -6,29 +6,54 @@ use Phalcon\Http\Response;
  * Get the user profile by its id.
  */
 $app->get('/api/users/{id:[0-9]+}', function ($id) use ($app) {
-    $phql = "SELECT * FROM User WHERE id = :id:";
-    $user = $app->modelsManager->executeQuery($phql, ['id' => (int) $id])->getFirst();
+    $phql = "SELECT User.id, User.email, User.account, User.first_name, User.second_name, User.created_at, " . 
+        "UserSettings.name, UserSettings.value FROM User LEFT JOIN UserSettings ON User.id=UserSettings.user_id WHERE User.id = :id:";
+    $user = $app->modelsManager->executeQuery($phql, ['id' => (int) $id]);
+    $content = ['data' => []];
+    $is_first_iteration = true;
+    foreach ($user as $data)
+    {
+        if($is_first_iteration)
+        {
+            $content['data']['id'] = $data->id;
+            $content['data']['email'] = $data->email;
+            $content['data']['account'] = $data->account;
+            $content['data']['first_name'] = html_entity_decode($data->first_name, ENT_QUOTES, 'UTF-8');
+            $content['data']['second_name'] = html_entity_decode($data->second_name, ENT_QUOTES, 'UTF-8');
+            $content['data']['created_at'] = $data->created_at;
+            $is_first_iteration = false;
+        }
+        
+        if(stristr($data->name, ":"))
+        {
+            $path = explode(":", $data->name);
+            $key = $path[0];
+            $sub_key = $path[1];
+            if(!isset($content['data'][$key]))
+            {
+                $counter = 0;
+                $content['data'][$key] = [];
+            }
+            
+            if(isset($content['data'][$key][$counter][$sub_key]))
+            {
+                $counter++;
+            }
+            $content['data'][$key][$counter][$sub_key] = html_entity_decode($data->value, ENT_QUOTES, 'UTF-8');
+        }
+        elseif(!empty ($data->name))
+        {
+            $content['data'][$data->name][] = html_entity_decode($data->value, ENT_QUOTES, 'UTF-8');
+        }
+    }
 
     // Create a response
     $response = new Response();
-    $content = ['data' => []];
-    if (!empty($user))
-    {
-        $response->setStatusCode(200, 'Ok');
-        $content = [
-            'data'   => [
-                'id'   => $user->id,
-                'name' => $user->email,
-                'first_name' => html_entity_decode($user->first_name, ENT_QUOTES, 'UTF-8'),
-                'second_name' => html_entity_decode($user->second_name, ENT_QUOTES, 'UTF-8'),
-                'created_at' => $user->created_at,
-            ]
-        ];
-    }
-    else
+    $response->setStatusCode(200, 'Ok');
+    if (empty($user))
     {
         $response->setStatusCode(404, 'Not Found');
-        $content['data'][] = 'There is no such user';
+        $content['data'] = ['There is no such user'];
     }
     
     $response->setJsonContent($content);
@@ -79,22 +104,50 @@ $app->post('/api/users', function () use ($app) {
     {
         if(is_array($setting_value))
         {
-            foreach ($setting_value as $value)
+            foreach ($setting_value as $values)
             {
-                $status = $app->modelsManager->executeQuery($phql, [
-                    'user_id' => $user->id,
-                    'name' => $setting_name,
-                    'value' => htmlentities(strip_tags(trim($value)), ENT_QUOTES, 'UTF-8'),
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'updated_at' => date('Y-m-d H:i:s'),
-                ]);
-                if(!$status->success())
+                if(is_object($values))
                 {
-                    foreach ($status->getMessages() as $message)
+                    foreach ($values as $sub_value_key => $sub_value)
                     {
-                        $content['data'][] = $message->getMessage();
+                        if(is_array($sub_value) || is_object($sub_value))
+                        {
+                            continue;
+                        }
+                        $status = $app->modelsManager->executeQuery($phql, [
+                            'user_id' => $user->id,
+                            'name' => implode(":", [$setting_name, $sub_value_key]),
+                            'value' => htmlentities(strip_tags(trim($sub_value)), ENT_QUOTES, 'UTF-8'),
+                            'created_at' => date('Y-m-d H:i:s'),
+                            'updated_at' => date('Y-m-d H:i:s'),
+                        ]);
+                        if(!$status->success())
+                        {
+                            foreach ($status->getMessages() as $message)
+                            {
+                                $content['data'][] = $message->getMessage();
+                            }
+                            $response->setStatusCode(409, 'Conflict');
+                        }
                     }
-                    $response->setStatusCode(409, 'Conflict');
+                }
+                else
+                {
+                    $status = $app->modelsManager->executeQuery($phql, [
+                        'user_id' => $user->id,
+                        'name' => $setting_name,
+                        'value' => htmlentities(strip_tags(trim($values)), ENT_QUOTES, 'UTF-8'),
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s'),
+                    ]);
+                    if(!$status->success())
+                    {
+                        foreach ($status->getMessages() as $message)
+                        {
+                            $content['data'][] = $message->getMessage();
+                        }
+                        $response->setStatusCode(409, 'Conflict');
+                    }
                 }
             }
         }

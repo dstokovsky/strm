@@ -5,7 +5,7 @@ use Phalcon\Http\Response;
 /**
  * Adds user with banned user id into user's id blacklist.
  */
-$app->post('/api/blacklist/{user_id:[0-9]+}/{banned_user_id:[0-9]+}', function ($user_id, $banned_user_id) use ($app) {
+$app->post('/api/blacklists/{user_id:[0-9]+}/{banned_user_id:[0-9]+}', function ($user_id, $banned_user_id) use ($app) {
     $response = new Response();
     $content = ['data' => []];
     $user = User::findFirst(['conditions' => 'id = ?0', 'bind' => [(int) $user_id]]);
@@ -54,9 +54,23 @@ $app->post('/api/blacklist/{user_id:[0-9]+}/{banned_user_id:[0-9]+}', function (
 /**
  * Get the user's blacklist by its id.
  */
-$app->get('/api/blacklist/{user_id:[0-9]+}', function ($user_id) use ($app) {
+$app->get('/api/blacklists/{user_id:[0-9]+}', function ($user_id) use ($app) {
+    $request = $app->request->getJsonRawBody();
     $phql = "SELECT User.* FROM Blacklist INNER JOIN User ON Blacklist.banned_user_id=User.id WHERE Blacklist.user_id = :user_id:";
-    $users = $app->modelsManager->executeQuery($phql, ['user_id' => (int) $user_id]);
+    $sql_params = ['user_id' => (int) $user_id];
+    if(isset($request->before_id) && (int) $request->before_id > 0)
+    {
+        $phql .= ' AND User.id < :before_id:';
+        $sql_params['before_id'] = (int) $request->before_id;
+    }
+    if(isset($request->after_id) && (int) $request->after_id > 0)
+    {
+        $phql .= ' AND User.id > :after_id:';
+        $sql_params['after_id'] = (int) $request->after_id;
+    }
+    $phql .= ' ORDER BY User.id ASC LIMIT 10';
+    
+    $users = $app->modelsManager->executeQuery($phql, $sql_params);
 
     // Create a response
     $response = new Response();
@@ -82,7 +96,7 @@ $app->get('/api/blacklist/{user_id:[0-9]+}', function ($user_id) use ($app) {
 /**
  * Removes user with banned user id from user's id blacklist.
  */
-$app->delete('/api/blacklist/{user_id:[0-9]+}/{banned_user_id:[0-9]+}', function ($user_id, $banned_user_id) use ($app) {
+$app->delete('/api/blacklists/{user_id:[0-9]+}/{banned_user_id:[0-9]+}', function ($user_id, $banned_user_id) use ($app) {
     $phql = "DELETE FROM Blacklist WHERE user_id = :user_id: AND banned_user_id = :banned_user_id:";
     $status = $app->modelsManager->executeQuery($phql, ['user_id' => (int) $user_id, 
         'banned_user_id' => (int) $banned_user_id]);

@@ -68,8 +68,21 @@ $app->get('/api/friends/{id:[0-9]+}/follows', function ($id) use ($app) {
     
     if(empty($content['data']))
     {
-        $phql = "SELECT User.* FROM User INNER JOIN UsersFriends ON User.id=UsersFriends.friend_id WHERE UsersFriends.user_id = :id: LIMIT 10";
-        $friends = $app->modelsManager->executeQuery($phql, ['id' => $id]);
+        $request = $app->request->getJsonRawBody();
+        $phql = "SELECT User.* FROM User INNER JOIN UsersFriends ON User.id=UsersFriends.friend_id WHERE UsersFriends.user_id = :id:";
+        $sql_params = ['id' => (int) $id];
+        if(isset($request->before_id) && (int) $request->before_id > 0)
+        {
+            $phql .= ' AND User.id < :before_id:';
+            $sql_params['before_id'] = (int) $request->before_id;
+        }
+        if(isset($request->after_id) && (int) $request->after_id > 0)
+        {
+            $phql .= ' AND User.id > :after_id:';
+            $sql_params['after_id'] = (int) $request->after_id;
+        }
+        $phql .= ' ORDER BY User.id ASC LIMIT 10';
+        $friends = $app->modelsManager->executeQuery($phql, $sql_params);
         $response->setStatusCode(200, 'Ok');
         $content = ['data' => []];
         foreach ($friends as $friend)
@@ -102,8 +115,21 @@ $app->get('/api/friends/{id:[0-9]+}/followers', function ($id) use ($app) {
     
     if(empty($content['data']))
     {
-        $phql = "SELECT User.* FROM User INNER JOIN UsersFriends ON User.id=UsersFriends.user_id WHERE UsersFriends.friend_id = :id: LIMIT 10";
-        $friends = $app->modelsManager->executeQuery($phql, ['id' => $id]);
+        $request = $app->request->getJsonRawBody();
+        $phql = "SELECT User.* FROM User INNER JOIN UsersFriends ON User.id=UsersFriends.user_id WHERE UsersFriends.friend_id = :id:";
+        $sql_params = ['id' => (int) $id];
+        if(isset($request->before_id) && (int) $request->before_id > 0)
+        {
+            $phql .= ' AND User.id < :before_id:';
+            $sql_params['before_id'] = (int) $request->before_id;
+        }
+        if(isset($request->after_id) && (int) $request->after_id > 0)
+        {
+            $phql .= ' AND User.id > :after_id:';
+            $sql_params['after_id'] = (int) $request->after_id;
+        }
+        $phql .= ' ORDER BY User.id ASC LIMIT 10';
+        $friends = $app->modelsManager->executeQuery($phql, $sql_params);
         $response->setStatusCode(200, 'Ok');
         $content = ['data' => []];
         foreach ($friends as $friend)
