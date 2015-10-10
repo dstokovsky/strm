@@ -1,6 +1,7 @@
 {
     "require": {
         "phalcon/devtools": "dev-master",
-        "robmorgan/phinx": "~0.4.4"
+        "robmorgan/phinx": "~0.4.4",
+        "league/oauth2-server": "^4.1"
     }
 }
